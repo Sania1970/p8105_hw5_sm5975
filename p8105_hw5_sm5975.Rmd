@@ -1,0 +1,97 @@
+---
+title: "p8105_hw5_sm5975"
+author: "Sania Sheifuddin"
+date: "2026-11-17"
+output: github_document
+---
+
+```{r}
+library (tidyverse)
+set.seed(1)
+```
+
+## Problem 1
+
+```{r Birthday Function}
+
+same_birthday = function(n_room) {
+  birthdays = sample (1:365, n_room, replace = TRUE)
+  repeated_birthday = length(unique(birthdays)) <n_room
+  repeated_birthday
+}
+  
+```
+
+```{r}
+same_birthday_result = 
+  expand_grid(birthdays = 2:50,
+              iter = 1:10000
+              ) |> 
+  mutate(
+    result = map_lgl (birthdays, same_birthday)
+  ) |> 
+  
+  group_by (birthdays) |> 
+  summarize(
+    prob_repeat = mean(result)
+  )
+```
+
+
+```{r}
+same_birthday_result |> 
+  ggplot(aes(x=birthdays, y = prob_repeat)) +
+  geom_point () +
+  geom_line () +
+  labs (
+    title = "Probability of getting a shared birthday by group size",
+    x = "Group size",
+    y = "probability of a shared birthday"
+  )
+
+```
+The probability that at least two people share a birthday increases as the group size increases. the probability is small for smaller groups (at about 0.13 at 10 people). It proceeds to increase steeply to about 35 people abouve 0.60 at around 30 people. Following this it starts leveling a bit with an increase in group size. Even though there are 365 possible birthday only a group of 23 has better odds of having a shared birthday. In a non-graphical situation the probabilities are probably more higher since birthdays aren't spread evenly accross the year. 
+
+
+## Problem 2
+
+```{r}
+full_df = 
+  tibble(
+    files = unzip("./data/hw5_data.zip", list = TRUE)$Name
+  ) |> 
+  filter(str_detect(files, "^data/(con|exp)_\\d+\\.csv$")) |> 
+  mutate(data = map(files, \(x) read_csv(unz("./data/hw5_data.zip", x)))) |> 
+  unnest(data) |> 
+  mutate(files = str_remove(files, "data/"))
+```
+
+```{r}
+tidy_df = 
+  full_df |> 
+  mutate(
+    files = str_replace(files, ".csv", ""),
+    arm = str_sub(files, 1, 3)) |> 
+  pivot_longer(
+    week_1:week_8,
+    names_to = "week",
+    values_to = "observation",
+    names_prefix = "week_") |> 
+  mutate(week = as.numeric(week)) |> 
+  select(arm, subject_id = files, week, observation)
+```
+
+```{r}
+tidy_df |> 
+  ggplot(aes(x = week, y = observation, group = subject_id, color = arm)) + 
+  geom_point() + 
+  geom_path() + 
+  facet_grid(~arm) + 
+  labs(
+    title = "Observations over time by subject and study arm",
+    x = "Week",
+    y = "Observation",
+    color = "Arm"
+  )
+```
+At week 1 there is a lot of overlap in the two arms. Most subject start from anywhere between -1 and 4. Accross the 8 weeks, the control subjects show no clear trend: their values are all over the place and move around the 1 range and between - 2 and 4and their ending values are similar to where they started. The experimental subject on the other hand show an increase over the weeks. By the eight week the experimental subject are way past the control subjects ( around range of 3 - 7). Both the arms show a lot of variation between the weeks within each subject but the experimental arm shows a consistent increasing trend over time. 
