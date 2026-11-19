@@ -94,4 +94,76 @@ tidy_df |>
     color = "Arm"
   )
 ```
-At week 1 there is a lot of overlap in the two arms. Most subject start from anywhere between -1 and 4. Accross the 8 weeks, the control subjects show no clear trend: their values are all over the place and move around the 1 range and between - 2 and 4and their ending values are similar to where they started. The experimental subject on the other hand show an increase over the weeks. By the eight week the experimental subject are way past the control subjects ( around range of 3 - 7). Both the arms show a lot of variation between the weeks within each subject but the experimental arm shows a consistent increasing trend over time. 
+At week 1 there is a lot of overlap in the two arms. Most subject start from anywhere between -1 and 4. Across the 8 weeks, the control subjects show no clear trend: their values are all over the place and move around the 1 range and between - 2 and 4and their ending values are similar to where they started. The experimental subject on the other hand show an increase over the weeks. By the eight week the experimental subject are way past the control subjects ( around range of 3 - 7). Both the arms show a lot of variation between the weeks within each subject but the experimental arm shows a consistent increasing trend over time. 
+## Problem 3
+
+```{r}
+sim_t_test = function(n = 30, mu = 0, sigma = 5) {
+  
+  sim_data = tibble(
+    x = rnorm(n, mean = mu, sd = sigma)
+  )
+  
+  t.test(sim_data |> pull(x), mu = 0) |> 
+    broom::tidy() |> 
+    select(mu_hat = estimate, p_value = p.value)
+}
+```
+
+
+```{r}
+sim_results_df = 
+  expand_grid(
+    true_mu = 0:6,
+    iter = 1:5000
+  ) |> 
+  mutate(
+    estimate_df = map(true_mu, \(mu) sim_t_test(mu = mu))
+  ) |> 
+  unnest(estimate_df) |> 
+  mutate(reject = p_value < 0.05)
+```
+
+```{r}
+sim_results_df |> 
+  group_by(true_mu) |> 
+  summarize(power = mean(reject)) |> 
+  ggplot(aes(x = true_mu, y = power)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(
+    title = "Power of the one-sample t-test",
+    x = "True μ",
+    y = "Power of the test"
+  )
+```
+
+```{r}
+
+sim_results_df |> 
+  group_by(true_mu) |> 
+  summarize(
+    all_samples = mean(mu_hat),
+    null_rejected = mean(mu_hat[reject])
+  ) |> 
+  pivot_longer(
+    all_samples:null_rejected,
+    names_to = "sample_type",
+    values_to = "avg_mu_hat"
+  ) |> 
+  ggplot(aes(x = true_mu, y = avg_mu_hat, color = sample_type)) + 
+  geom_point() + 
+  geom_line() + 
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") + 
+  labs(
+    title = "Average estimate of μ by true value of μ",
+    x = "True μ",
+    y = "Average estimate of μ̂",
+    color = "Samples"
+  )
+```
+For Plot 1
+The Power goes up as the true mu gets bigger. At μ = 0, the null is true so the rejection rate is 0.05 (alpha value). Power then begins to rise in a steep meanner and is around 0.20 at μ = 1, 0.60 at μ = 2 and 0.90 at μ = 3. It is close to 1 at μ = 4 and starts plateauing for μ = 5 and 6. With n = 30 and at an alpha of 5 (fixed). The larger the effects are the easier it is to distinguish from 0. Therefore the test is able to detect them in a more reliable manner. 
+
+For Plot 2
+Across all the samples the average mu_hat falls on the y = x line for every value of μ. This is because the sample mean is an unbiased estimator. In samples where the null was rejected, the average μ̂ is not approximately equal to the true μ when the effect is small. It's about 2.2 when the μ = 1, about 2.5 when the μ = 2 and about 3.2 when μ = 3. From μ=4 onward it lines  up with the true value. When the power is low, a sample only reaches p<0.05 if its μ̂ lands far from , so the rejected samples are mostly the ones that overestimated μ. This is the reason as to why the estimate lines up with the true value at μ = 4. As power approaches 1, nearly every sample gets rejected which is essentially all samples and their average matches the truth. At μ=0, rejections happen equally often in both directions, so the average stays near 0. This shows how looking only at statistically signifcant results from underpowered studies tend to exaggerate the effect sizes. 
